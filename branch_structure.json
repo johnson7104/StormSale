@@ -1,0 +1,27 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap",
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap-r2",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot-r2",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap": "main",
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap-r2": "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot": "main",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot-r2": "feat/issue-163-feat-affiliate-telegram-notification-bot",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot",
+    "origin",
+    "feat/issue-162-feat-affiliate-real-time-click-stream-heatmap-r2",
+    "feat/issue-163-feat-affiliate-telegram-notification-bot-r2"
+  ]
+}
