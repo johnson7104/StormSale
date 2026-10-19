@@ -1,4 +1,4 @@
-/**
+/*
  * Advertiser Cohort Analysis & Customer Lifetime Value (LTV) Engine
  * Groups conversions by customer attribution date, calculates repeat purchase rates,
  * computes 30/60/90-day retention metrics, and calculates partner average basket size & LTV.
@@ -285,11 +285,7 @@ export function calculatePartnerMetrics(
   const filtered = conversions.filter((c) => {
     if (filters.campaignId && filters.campaignId !== "all" && c.campaignId !== filters.campaignId)
       return false;
-    if (
-      filters.affiliateAddress &&
-      filters.affiliateAddress !== "all" &&
-      c.affiliateAddress !== filters.affiliateAddress
-    )
+    if (filters.affiliateAddress && filters.affiliateAddress !== "all" && c.affiliateAddress !== filters.affiliateAddress)
       return false;
     return true;
   });
@@ -340,8 +336,8 @@ export function calculatePartnerMetrics(
       affiliateAddress: address,
       affiliateName: data.name,
       totalConversions: data.conversions,
-      uniqueCustomers,
-      repeatCustomers,
+      uniqueCustomers: uniqueCustomers,
+      repeatConsumers: repeatCustomers,
       repeatTransactionRate: repeatRate,
       averageBasketSize: avgBasket,
       totalRevenue: Number(data.revenue.toFixed(2)),
@@ -377,156 +373,46 @@ export function exportCohortDataToCSV(
   rows.push(`Generated Date,${new Date().toISOString()}`);
   rows.push("");
   rows.push(
-    "Cohort,Acquired Users,Day 0 Rate,Day 30 Rate,Day 60 Rate,Day 90 Rate,Total Cumulative Revenue ($),Average LTV ($)",
+    "Cohort,Acquired Users,Day 0 Rate,Day 30 Rate,Day 60 Rate,Day 90 Rate,Total Cumulative Revenue ($),Avg LTV ($)",
   );
 
-  cohorts.forEach((c) => {
+  cohorts.forEach((cohort) => {
     rows.push(
       [
-        csvCell(c.cohortLabel),
-        c.initialUsers,
-        "100%",
-        formatRate(c.day30),
-        formatRate(c.day60),
-        formatRate(c.day90),
-        `$${c.totalCumulativeRevenue.toFixed(2)}`,
-        `$${c.totalLtv.toFixed(2)}`,
+        csvCell(cohort.cohortLabel),
+        csvCell(cohort.initialUsers),
+        csvCell(formatRate(cohort.day0)),
+        csvCell(formatRate(cohort.day30)),
+        csvCell(formatRate(cohort.day60)),
+        csvCell(formatRate(cohort.day90)),
+        csvCell(cohort.totalCumulativeRevenue),
+        csvCell(cohort.totalLtv),
       ].join(","),
     );
   });
 
+  // Section 2: Partner LTV & Basket Metrics
   rows.push("");
-  rows.push("=== AFFILIATE PARTNER LTV & BASKET SIZE BREAKDOWN ===");
+  rows.push("=== PARTNER PERFORMANCE & LTV METRICS ===");
   rows.push(
-    "Affiliate Partner,Stellar Wallet,Total Sales,Unique Customers,Repeat Customers,Repeat Rate,Avg Basket Size ($),Total Revenue ($),Customer LTV ($)",
+    "Partner,Address,Total Conversions,Unique Customers,Repeat Customers,Repeat Rate (%),Avg Basket Size ($),Total Revenue ($),Avg LTV ($)",
   );
 
-  partners.forEach((p) => {
+  partners.forEach((partner) => {
     rows.push(
       [
-        csvCell(p.affiliateName),
-        csvCell(p.affiliateAddress),
-        p.totalConversions,
-        p.uniqueCustomers,
-        p.repeatCustomers,
-        `${p.repeatTransactionRate}%`,
-        `$${p.averageBasketSize.toFixed(2)}`,
-        `$${p.totalRevenue.toFixed(2)}`,
-        `$${p.averageLtv.toFixed(2)}`,
+        csvCell(partner.affiliateName),
+        csvCell(partner.affiliateAddress),
+        csvCell(partner.totalConversions),
+        csvCell(partner.uniqueCustomers),
+        csvCell(partner.repeatConsumers),
+        csvCell(partner.repeatTransactionRate),
+        csvCell(partner.averageBasketSize),
+        csvCell(partner.totalRevenue),
+        csvCell(partner.averageLtv),
       ].join(","),
     );
   });
 
-  return rows.join("\r\n");
-}
-
-/**
- * Trigger file download for CSV in browser
- */
-export function downloadCSV(csvContent: string, fileName = "cohort-retention-analysis.csv"): void {
-  if (typeof window === "undefined") return;
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", fileName);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Default Seed Conversion Data generator spanning 90+ days
- */
-export function getSampleConversions(): CustomerConversion[] {
-  const partners = [
-    { name: "Alex Johnson", address: "GAFFILIATE_ALEX_123456789" },
-    { name: "Sarah Miller", address: "GAFFILIATE_SARAH_987654321" },
-    { name: "Mike Chen", address: "GAFFILIATE_MIKE_456789123" },
-    { name: "Emily Davis", address: "GAFFILIATE_EMILY_789123456" },
-  ];
-
-  const campaigns = [
-    { id: "camp-1", name: "Tech Gadgets Pro" },
-    { id: "camp-2", name: "Web3 Masterclass" },
-    { id: "camp-3", name: "Crypto Tools Suite" },
-  ];
-
-  const conversions: CustomerConversion[] = [];
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-
-  // Generate 5 cohorts over the past 120 days
-  const cohortOffsets = [120, 90, 60, 30, 10]; // days ago
-
-  cohortOffsets.forEach((cohortDayOffset, cohortIdx) => {
-    const customerCountInCohort = 20 + cohortIdx * 6; // 20 - 44 customers
-
-    for (let c = 1; c <= customerCountInCohort; c++) {
-      const customerRef = `CUST_COHORT_${cohortIdx}_${c}`;
-      const partner = partners[c % partners.length];
-      const campaign = campaigns[c % campaigns.length];
-
-      // Day 0: Acquisition Conversion
-      const acquisitionTime = new Date(
-        now - cohortDayOffset * dayMs + (c % 5) * 3600000,
-      ).toISOString();
-      const initialAmount = 45 + (c % 7) * 15; // $45 - $135
-      conversions.push({
-        id: `TX_ACQ_${cohortIdx}_${c}`,
-        customerRef,
-        affiliateAddress: partner.address,
-        affiliateName: partner.name,
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        amount: initialAmount,
-        timestamp: acquisitionTime,
-      });
-
-      // Repeat purchase at ~25 days (within 30 days)
-      if (cohortDayOffset >= 30 && c % 3 === 0) {
-        conversions.push({
-          id: `TX_D30_${cohortIdx}_${c}`,
-          customerRef,
-          affiliateAddress: partner.address,
-          affiliateName: partner.name,
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          amount: 60 + (c % 4) * 20,
-          timestamp: new Date(new Date(acquisitionTime).getTime() + 25 * dayMs).toISOString(),
-        });
-      }
-
-      // Repeat purchase at ~50 days (within 60 days)
-      if (cohortDayOffset >= 60 && c % 4 === 0) {
-        conversions.push({
-          id: `TX_D60_${cohortIdx}_${c}`,
-          customerRef,
-          affiliateAddress: partner.address,
-          affiliateName: partner.name,
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          amount: 75 + (c % 5) * 25,
-          timestamp: new Date(new Date(acquisitionTime).getTime() + 50 * dayMs).toISOString(),
-        });
-      }
-
-      // Repeat purchase at ~80 days (within 90 days)
-      if (cohortDayOffset >= 90 && c % 5 === 0) {
-        conversions.push({
-          id: `TX_D90_${cohortIdx}_${c}`,
-          customerRef,
-          affiliateAddress: partner.address,
-          affiliateName: partner.name,
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          amount: 90 + (c % 6) * 30,
-          timestamp: new Date(new Date(acquisitionTime).getTime() + 80 * dayMs).toISOString(),
-        });
-      }
-    }
-  });
-
-  return conversions;
+  return rows.join("\n");
 }
