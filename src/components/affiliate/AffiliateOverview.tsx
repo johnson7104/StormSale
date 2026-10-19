@@ -1,3 +1,5 @@
+import { useCallback, useMemo, useState } from "react";
+import QRCode from "qrcode";
 import {
   Card,
   CardContent,
@@ -6,252 +8,472 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
-import { TrendingUp, Users, DollarSign, Target, Zap, ArrowRight, CheckCircle2 } from "lucide-react";
+import {
+  TrendingUp,
+  Users,
+  DollarSign,
+  Target,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+  Copy,
+  Download,
+  Link2,
+  QrCode,
+  ShieldCheck,
+  Globe2,
+  Calendar,
+} from "lucide-react";
+import { useWeb3 } from "../../context/Web3Context";
 
-export const AffiliateOverview = () => {
-  const stats = [
-    {
-      title: "Total Earnings",
-      value: "$12,847",
-      change: "+18% this month",
-      icon: DollarSign,
-    },
-    { title: "Active Campaigns", value: "8", change: "+2 this week", icon: Users },
-    {
-      title: "Conversion Rate",
-      value: "3.2%",
-      change: "+0.4% vs last month",
-      icon: TrendingUp,
-    },
-    { title: "Monthly Goal", value: "85%", change: "On track", icon: Target },
-  ];
+const toBase64Url = (bytes: Uint8Array) => {
+  let binary = "";
+  bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
 
-  const recentPayouts = [
-    {
-      campaign: "Tech Gadgets Pro",
-      amount: "$1,250",
-      date: "2 days ago",
-      status: "Completed",
-    },
-    {
-      campaign: "Web3 Masterclass",
-      amount: "$890",
-      date: "1 week ago",
-      status: "Completed",
-    },
-    {
-      campaign: "Crypto Tools",
-      amount: "$2,150",
-      date: "2 weeks ago",
-      status: "Completed",
-    },
-  ];
+async function createEncryptedAffiliateUrl(affiliate: string, campaignId: string) {
+  if (!globalThis.crypto?.subtle) throw new Error("Secure link generation requires HTTPS.");
+
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const payload = new TextEncoder().encode(
+    JSON.stringify({ v: 1, affiliate, campaignId, createdAt: new Date().toISOString() }),
+  );
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, payload);
+  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+  const params = new URLSearchParams({
+    ref: `v1.${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ciphertext))}`,
+  });
+  const url = new URL(window.location.origin);
+  url.search = params.toString();
+  url.hash = `key=${toBase64Url(rawKey)}`;
+  return url.toString();
+}
+
+const AffiliateLinkGenerator = () => {
+  const { userAddress } = useWeb3();
+  const [campaignId, setCampaignId] = useState("");
+  const [affiliateOverride, setAffiliateOverride] = useState<string | null>(null);
+  const affiliateAddress = affiliateOverride ?? userAddress ?? "";
+  const [shareUrl, setShareUrl] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const generate = useCallback(async () => {
+    setMessage("");
+    setShareUrl("");
+    setQrDataUrl("");
+    if (!affiliateAddress.trim() || !campaignId.trim()) {
+      setMessage("Enter an affiliate wallet and campaign ID to create a link.");
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const nextUrl = await createEncryptedAffiliateUrl(affiliateAddress.trim(), campaignId.trim());
+      const qr = await QRCode.toDataURL(nextUrl, {
+        errorCorrectionLevel: "H",
+        margin: 2,
+        width: 220,
+        color: { dark: "#18181b", light: "#ffffff" },
+      });
+      setShareUrl(nextUrl);
+      setQrDataUrl(qr);
+      setMessage("Encrypted link and QR code are ready.");
+    } catch {
+      setMessage("Could not create your link. Use a secure (HTTPS) connection and try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [affiliateAddress, campaignId]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setMessage("Link copied to clipboard.");
+    } catch {
+      setMessage("Clipboard access is unavailable. Select and copy the link below.");
+    }
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white dark:bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-zinc-800 shadow-sm">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-            Affiliate Dashboard
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-2 font-medium">
-            Track your performance and maximize your on-chain earnings.
-          </p>
-        </div>
-        <Button className="mt-6 lg:mt-0 bg-zinc-900 hover:bg-zinc-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-full px-6 h-12 font-semibold shadow-md transition-all">
-          <Zap className="w-5 h-5 mr-2" />
-          Quick Start Guide
-        </Button>
-      </div>
-
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const IconComponent = stat.icon;
-          return (
-            <Card
-              key={index}
-              className="bg-white dark:bg-zinc-900/80 shadow-sm border border-slate-200 dark:border-zinc-800 hover:shadow-md transition-shadow rounded-2xl"
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-extrabold text-zinc-900 dark:text-white mt-2 mb-1">
-                      {stat.value}
-                    </p>
-                    <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                      {stat.change}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-slate-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center border border-slate-200 dark:border-zinc-700 shrink-0">
-                    <IconComponent className="w-5 h-5 text-zinc-900 dark:text-indigo-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Two Column Layout */}
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Recent Payouts */}
-        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
-          <CardHeader className="border-b border-slate-100 dark:border-zinc-800/50 pb-4">
+    <Card className="overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
+      <CardHeader className="border-b border-slate-100 dark:border-zinc-800/70 bg-gradient-to-r from-indigo-50/80 to-white dark:from-indigo-500/10 dark:to-zinc-900/40">
+        <div className="flex items-start gap-4">
+          <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-indigo-600/20">
+            <Link2 className="w-5 h-5" />
+          </div>
+          <div>
             <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">
-              Recent Payouts
+              Encrypted link & QR code
             </CardTitle>
-            <CardDescription className="text-zinc-500 dark:text-zinc-400">
-              Your latest commission payments
+            <CardDescription className="mt-1 text-zinc-500 dark:text-zinc-400">
+              Create a private, campaign-specific tracking link to share anywhere.
             </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {recentPayouts.map((payout, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-950/50 border border-slate-100 dark:border-zinc-800/50 rounded-xl hover:border-slate-200 dark:hover:border-zinc-700 transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl flex items-center justify-center shrink-0">
-                      <DollarSign className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm text-zinc-900 dark:text-white">
-                        {payout.campaign}
-                      </div>
-                      <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 mt-0.5">
-                        {payout.date}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-sm text-zinc-900 dark:text-white">
-                      {payout.amount}
-                    </div>
-                    <div className="flex items-center justify-end gap-1 mt-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-                        {payout.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 md:p-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="affiliate-wallet"
+                className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300"
+              >
+                Affiliate wallet
+              </label>
+              <input
+                id="affiliate-wallet"
+                value={affiliateAddress}
+                onChange={(event) => setAffiliateOverride(event.target.value)}
+                placeholder="G... wallet address"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3.5 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="campaign-id"
+                className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300"
+              >
+                Campaign ID
+              </label>
+              <input
+                id="campaign-id"
+                value={campaignId}
+                onChange={(event) => setCampaignId(event.target.value)}
+                placeholder="e.g. spring-launch"
+                className="w-full h-11 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3.5 text-sm text-zinc-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15"
+              />
             </div>
             <Button
-              variant="ghost"
-              className="w-full mt-6 text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-slate-50 dark:hover:bg-zinc-900/50"
+              onClick={generate}
+              disabled={isGenerating}
+              className="h-11 w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
             >
-              View All Payouts
-              <ArrowRight className="w-4 h-4 ml-2" />
+              <QrCode className="mr-2 h-4 w-4" />
+              {isGenerating
+                ? "Generating secure link…"
+                : shareUrl
+                  ? "Generate a new link"
+                  : "Generate link & QR code"}
             </Button>
-          </CardContent>
-        </Card>
-
-        {/* Performance Tips */}
-        <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
-          <CardHeader className="border-b border-slate-100 dark:border-zinc-800/50 pb-4">
-            <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">
-              Performance Tips
-            </CardTitle>
-            <CardDescription className="text-zinc-500 dark:text-zinc-400">
-              Boost your affiliate earnings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              {[
-                {
-                  tip: "Optimize your content for higher conversions",
-                  impact: "High",
-                },
-                { tip: "Join trending campaigns early", impact: "Medium" },
-                { tip: "Use multiple promotion channels", impact: "High" },
-                {
-                  tip: "Engage with your audience regularly",
-                  impact: "Medium",
-                },
-              ].map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 bg-slate-50 dark:bg-zinc-950/50 border border-slate-100 dark:border-zinc-800/50 rounded-xl"
+            {message && (
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-xs text-zinc-500 dark:text-zinc-400"
+              >
+                {message}
+              </p>
+            )}
+            {shareUrl && (
+              <div className="space-y-2">
+                <label
+                  htmlFor="share-link"
+                  className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                 >
-                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 pr-4">
-                    {item.tip}
-                  </div>
-                  <span
-                    className={`shrink-0 text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full ${
-                      item.impact === "High"
-                        ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400"
-                        : "bg-slate-200 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400"
-                    }`}
+                  Your share link
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="share-link"
+                    readOnly
+                    value={shareUrl}
+                    className="min-w-0 flex-1 h-10 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 px-3 text-xs text-zinc-600 dark:text-zinc-300"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={copyLink}
+                    aria-label="Copy affiliate link"
+                    className="h-10 rounded-lg px-3"
                   >
-                    {item.impact}
-                  </span>
+                    <Copy className="h-4 w-4" />
+                  </Button>
                 </div>
-              ))}
+              </div>
+            )}
+            <div className="flex gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs leading-relaxed text-emerald-800 dark:text-emerald-300">
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              <span>
+                AES-256-GCM encrypts your affiliate and campaign details. The key stays in the URL
+                fragment and is not sent with the request.
+              </span>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
-        <CardHeader className="border-b border-slate-100 dark:border-zinc-800/50 pb-4">
-          <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">
-            Quick Actions
-          </CardTitle>
-          <CardDescription className="text-zinc-500 dark:text-zinc-400">
-            Get started quickly
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                label: "Join New Campaign",
-                description: "Discover high-paying campaigns",
-                icon: Users,
-              },
-              {
-                label: "Track Performance",
-                description: "View analytics and insights",
-                icon: TrendingUp,
-              },
-              {
-                label: "Withdraw Earnings",
-                description: "Claim your commissions",
-                icon: DollarSign,
-              },
-            ].map((action, index) => {
-              const IconComponent = action.icon;
-              return (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="h-24 flex-col gap-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 transition-all group"
-                >
-                  <IconComponent className="w-6 h-6 text-zinc-400 dark:text-zinc-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
-                  <div className="text-center">
-                    <div className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
-                      {action.label}
-                    </div>
-                    <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 mt-0.5">
-                      {action.description}
-                    </div>
-                  </div>
-                </Button>
-              );
-            })}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-zinc-700 bg-slate-50/70 dark:bg-zinc-950/40 p-5 text-center">
+            {qrDataUrl ? (
+              <>
+                <img
+                  src={qrDataUrl}
+                  alt="QR code for encrypted affiliate tracking link"
+                  className="h-[180px] w-[180px] rounded-xl bg-white p-2 shadow-sm"
+                />
+                <p className="mt-3 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  Scan to open your affiliate link
+                </p>
+                <a
+                  href={qrDataUrl}
+                  download="stormsale-affiliate-qr-png"
+                  className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-indigo-400"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download QR
+                </a>
+              </>
+            ) : (
+              <>
+                <div className="flex h-[180px] w-[180px] items-center justify-center rounded-xl bg-white dark:bg-zinc-900 text-slate-300 dark:text-zinc-700">
+                  <QrCode className="h-16 w-16" strokeWidth={1.25} />
+                </div>
+                <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                  Your QR code appears here
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
+
+type GeoClick = {
+  country: string;
+  iso: string;
+  clicks: number;
+  conversions: number;
+  x: number;
+  y: number;
+};
+
+const GEO_DATA: GeoClick[] = [
+  { country: "United States", iso: "US", clicks: 4820, conversions: 168, x: 22, y: 38 },
+  { country: "United Kingdom", iso: "GB", clicks: 2140, conversions: 92, x: 46, y: 30 },
+  { country: "Germany", iso: "DE", clicks: 1890, conversions: 71, x: 50, y: 33 },
+  { country: "India", iso: "IN", clicks: 1620, conversions: 58, x: 68, y: 48 },
+  { country: "Brazil", iso: "BR", clicks: 1240, conversions: 39, x: 32, y: 68 },
+  { country: "Canada", iso: "CA", clicks: 980, conversions: 34, x: 20, y: 28 },
+  { country: "Australia", iso: "AU", clicks: 760, conversions: 22, x: 82, y: 74 },
+  { country: "Japan", iso: "JP", clicks: 640, conversions: 19, x: 84, y: 36 },
+  { country: "Nigeria", iso: "NG", clicks: 520, conversions: 14, x: 50, y: 55 },
+  { country: "Mexico", iso: "MX", clicks: 410, conversions: 11, x: 17, y: 50 },
+];
+
+const DATE_RANGES = [
+  { id: "7d", label: "7 days", factor: 0.25 },
+  { id: "30d", label: "30 days", factor: 1 },
+  { id: "90d", label: "90 days", factor: 2.4 },
+] as const;
+
+const CAMPAIGN_FILTERS = [
+  { id: "all", label: "All campaigns", factor: 1 },
+  { id: "spring-launch", label: "Spring Launch", factor: 0.55 },
+  { id: "web3-masterclass", label: "Web3 Masterclass", factor: 0.3 },
+] as const;
+
+const GeoHeatmap = () => {
+  const [rangeId, setRangeId] = useState<(typeof DATE_RANGES)[number]["id"]>("30d");
+  const [campaignId, setCampaignId] = useState<(typeof CAMPAIGN_FILTERS)[number]["id"]>("all");
+
+  const rangeFactor = DATE_RANGES.find((r) => r.id === rangeId)?.factor ?? 1;
+  const campaignFactor = CAMPAIGN_FILTERS.find((c) => c.id === campaignId)?.factor ?? 1;
+
+  const scaled = useMemo(
+    () =>
+      GEO_DATA.map((row) => ({
+        ...row,
+        clicks: Math.round(row.clicks * rangeFactor * campaignFactor),
+        conversions: Math.round(row.conversions * rangeFactor * campaignFactor),
+      })),
+    [rangeFactor, campaignFactor],
+  );
+
+  const maxClicks = useMemo(
+    () => Math.max(1, ...scaled.map((row) => row.clicks)),
+    [scaled],
+  );
+
+  const topCountries = useMemo(
+    () =>
+      [...scaled]
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 5),
+    [scaled],
+  );
+
+  const totalClicks = useMemo(() => scaled.reduce((sum, row) => sum + row.clicks, 0), [scaled]);
+  const totalConversions = useMemo(
+    () => scaled.reduce((sum, row) => sum + row.conversions, 0),
+    [scaled],
+  );
+
+  return (
+    <Card className="overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
+      <CardHeader className="border-b border-slate-100 dark:border-zinc-800/70 bg-gradient-to-r from-sky-50/80 to-white dark:from-sky-500/10 dark:to-zinc-900/40">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-sky-600/20">
+              <Globe2 className="w-5 h-5" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">
+                Real-time click heatmap
+              </CardTitle>
+              <CardDescription className="mt-1 text-zinc-500 dark:text-zinc-400">
+                Clicks aggregated by country ISO code — no raw PII stored.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5">
+              <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+              <select
+                aria-label="Date range"
+                value={rangeId}
+                onChange={(e) => setRangeId(e.target.value as (typeof DATE_RANGES)[number]["id"])}
+                className="bg-transparent text-xs font-semibold text-zinc-700 dark:text-zinc-200 outline-none"
+              >
+                {DATE_RANGES.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5">
+              <Target className="h-3.5 w-3.5 text-zinc-500" />
+              <select
+                aria-label="Campaign filter"
+                value={campaignId}
+                onChange={(e) =>
+                  setCampaignId(e.target.value as (typeof CAMPAIGN_FILTERS)[number]["id"])
+                }
+                className="bg-transparent text-xs font-semibold text-zinc-700 dark:text-zinc-200 outline-none"
+              >
+                {CAMPAIGN_FILTERS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 md:p-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/60">
+            <svg
+              viewBox="0 0 100 100"
+              role="img"
+              aria-label="World map heatmap of clicks by country"
+              className="h-full w-full"
+            >
+              <defs>
+                <radialGradient id="heatGradient">
+                  <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.85" />
+                  <stop offset="70%" stopColor="#f43f5e" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <rect width="100" height="100" fill="transparent" />
+              <g className="transition-opacity duration-500">
+                {scaled.map((row) => {
+                  const radius = 4 + (row.clicks / maxClicks) * 12;
+                  const opacity = 0.25 + (row.clicks / maxClicks) * 0.75;
+                  const conversionRate = row.clicks > 0 ? (row.conversions / row.clicks) * 100 : 0;
+                  return (
+                    <g key={row.iso}>
+                      <circle
+                        cx={row.x}
+                        cy={row.y}
+                        r={radius * 2.2}
+                        fill="url(#heatGradient)"
+                        className="transition-all duration-500 ease-out"
+                        opacity={opacity * 0.6}
+                      />
+                      <circle
+                        cx={row.x}
+                        cy={row.y}
+                        r={radius}
+                        fill="#f43f5e"
+                        className="transition-all duration-500 ease-out cursor-pointer"
+                        opacity={opacity}
+                      >
+                        <title>
+                          {`${row.country} (${row.iso}): ${row.clicks.toLocaleString()} clicks, ${row.conversions.toLocaleString()} conversions (${conversionRate.toFixed(1)}%)`}
+                        </title>
+                      </circle>
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+            <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-lg bg-white/90 dark:bg-zinc-900/90 px-3 py-2 text-[10px] font-medium text-zinc-600 dark:text-zinc-300 shadow-sm">
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-500" /> High
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-500/40" /> Low
+              </span>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/60 p-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-zinc-500">
+                  Clicks
+                </p>
+                <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-white">
+                  {totalClicks.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/60 p-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-zinc-500">
+                  Conversions
+                </p>
+                <p className="mt-1 text-xl font-bold text-zinc-900 dark:text-white">
+                  {totalConversions.toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div>
+              <h3 className="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Top 5 countries
+              </h3>
+              <ul className="space-y-2">
+                {topCountries.map((row, index) => {
+                  const rate = row.clicks > 0 ? (row.conversions / row.clicks) * 100 : 0;
+                  return (
+                    <li
+                      key={row.iso}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 px-3 py-2"
+                    >
+                      <span className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold text-zinc-500">
+                          {index + 1}
+                        </span>
+                        {row.country}
+                      </span>
+                      <span className="text-right">
+                        <span className="block text-xs font-semibold text-zinc-900 dark:text-white">
+                          {row.clicks.toLocaleString()} clicks
+                        </span>
+                        <span className="block text-[10px] text-emerald-600 dark:text-emerald-400">
+                          {rate.toFixed(1)}% conversion
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default GeoHeatmap;

@@ -49,7 +49,7 @@ export function useDashboardCache() {
     hydrate();
   }, []);
 
-  // Persist metrics to IndexedDB whenever they change
+  // Persist metrics to IndexedDBwhenever they change
   const persistMetrics = useCallback(
     async (updates: Partial<DashboardMetrics>) => {
       const next = { ...metrics, ...updates, lastSynced: Date.now() };
