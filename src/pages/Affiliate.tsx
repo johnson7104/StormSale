@@ -6,21 +6,36 @@ import { SalesList } from "../components/affiliate/SalesList";
 import { ClaimPayouts } from "../components/affiliate/ClaimPayouts";
 import { AffiliateOverview } from "../components/affiliate/AffiliateOverview";
 import { AffiliateSettings } from "../components/affiliate/AffiliateSettings";
-import { Users, TrendingUp, DollarSign, Shield, LayoutDashboard, Sliders, Map as MapIcon } from "lucide-react";
+import { TelegramCampaignBrowser } from "../components/affiliate/TelegramCampaignBrowser";
+import {
+  Users,
+  TrendingUp,
+  DollarSign,
+  Shield,
+  LayoutDashboard,
+  Send,
+  Sliders,
+  Map as MapIcon,
+} from "lucide-react";
 import { NotificationProvider } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { isTelegramMiniApp } from "../lib/telegram";
 import { Button } from "../components/ui/button";
+
 
 interface AffiliateProps {
   onBack: () => void;
 }
 
 const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() =>
+    isTelegramMiniApp() ? "telegram-browser" : "overview",
+  );
 
   const tabs = [
     { id: "overview", label: "Dashboard Overview", icon: LayoutDashboard },
     { id: "heatmap", label: "Click Heatmap", icon: MapIcon },
+    { id: "telegram-browser", label: "Telegram Campaigns", icon: Send },
     { id: "join-campaign", label: "Join Campaign", icon: Users },
     { id: "my-sales", label: "My Sales & Commissions", icon: DollarSign },
     { id: "claim-payouts", label: "Claim Payouts", icon: TrendingUp },
@@ -32,6 +47,8 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
     switch (activeTab) {
       case "heatmap":
         return <AffiliateOverview />;
+      case "telegram-browser":
+        return <TelegramCampaignBrowser />;
       case "join-campaign":
         return <JoinCampaignButton />;
       case "my-sales":

@@ -215,7 +215,7 @@ const AffiliateLinkGenerator = () => {
                 </p>
                 <a
                   href={qrDataUrl}
-                  download="stormsale-affiliate-qr-png"
+                  download="stormsale-affiliate-qr.png"
                   className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:border-indigo-400"
                 >
                   <Download className="h-3.5 w-3.5" /> Download QR
