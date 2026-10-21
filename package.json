@@ -1,6 +1,6 @@
 {
   "name": "storm-sale",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "\tThe future of affiliate bridging the gap between marketers and end users",
   "homepage": "https://github.com/StormSale/StormSale#readme",
@@ -16,8 +16,8 @@
   "type": "module",
   "main": "eslint.config.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node init && vite",
+    "build": "node init && tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
