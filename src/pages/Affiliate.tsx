@@ -7,6 +7,7 @@ import { ClaimPayouts } from "../components/affiliate/ClaimPayouts";
 import { AffiliateOverview } from "../components/affiliate/AffiliateOverview";
 import { AffiliateSettings } from "../components/affiliate/AffiliateSettings";
 import { TelegramCampaignBrowser } from "../components/affiliate/TelegramCampaignBrowser";
+import { CustomLinksManager } from "../components/affiliate/CustomLinksManager";
 import {
   Users,
   TrendingUp,
@@ -16,13 +17,13 @@ import {
   Send,
   Sliders,
   Map as MapIcon,
+  Link2,
 } from "lucide-react";
 import { NotificationProvider } from "../context/NotificationContext";
 import { usePreference } from "../hooks/usePreference";
 import { motion, AnimatePresence } from "framer-motion";
 import { isTelegramMiniApp } from "../lib/telegram";
 import { Button } from "../components/ui/button";
-
 
 interface AffiliateProps {
   onBack: () => void;
@@ -31,6 +32,7 @@ interface AffiliateProps {
 const AFFILIATE_TABS = [
   "overview",
   "telegram-browser",
+  "custom-links",
   "join-campaign",
   "my-sales",
   "claim-payouts",
@@ -50,6 +52,7 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
     { id: "overview", label: "Dashboard Overview", icon: LayoutDashboard },
     { id: "heatmap", label: "Click Heatmap", icon: MapIcon },
     { id: "telegram-browser", label: "Telegram Campaigns", icon: Send },
+    { id: "custom-links", label: "Custom Short Links", icon: Link2 },
     { id: "join-campaign", label: "Join Campaign", icon: Users },
     { id: "my-sales", label: "My Sales & Commissions", icon: DollarSign },
     { id: "claim-payouts", label: "Claim Payouts", icon: TrendingUp },
@@ -63,6 +66,8 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
         return <AffiliateOverview />;
       case "telegram-browser":
         return <TelegramCampaignBrowser />;
+      case "custom-links":
+        return <CustomLinksManager />;
       case "join-campaign":
         return <JoinCampaignButton />;
       case "my-sales":
@@ -72,9 +77,9 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
       case "settings":
         return <AffiliateSettings />;
       case "overview":
-        return <AffiliateOverview />;
+        return <AffiliateOverview onNavigate={setActiveTab} />;
       default:
-        return <AffiliateOverview />;
+        return <AffiliateOverview onNavigate={setActiveTab} />;
     }
   };
 
