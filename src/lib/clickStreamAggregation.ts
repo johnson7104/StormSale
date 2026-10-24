@@ -11,7 +11,7 @@
  *    date filter changes without key chaos.
  */
 
-export type ClickEventType = 'click' | 'conversion';
+export type ClickEventType = "click" | "conversion";
 
 /**
  * Minimal input shape for a click stream event.
@@ -29,7 +29,7 @@ export interface ClickStreamEvent {
 }
 
 export interface DateRangeFilter {
-  /** Inclusive start (inclusive). */
+  /** Inclusive start. */
   start?: string | Date | number | null;
   /** Exclusive end. */
   end?: string | Date | number | null;
@@ -66,14 +66,14 @@ export interface HeatmapResult {
 const ISO_ALPHA2_RE = /^[A-Z]{2}$/;
 
 function toTimestamp(value: string | Date | number): number | null {
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
   if (value instanceof Date) {
     const t = value.getTime();
     return Number.isFinite(t) ? t : null;
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const t = Date.parse(value);
     return Number.isFinite(t) ? t : null;
   }
@@ -81,7 +81,7 @@ function toTimestamp(value: string | Date | number): number | null {
 }
 
 function normalizeIso(iso: unknown): string | null {
-  if (typeof iso !== 'string') return null;
+  if (typeof iso !== "string") return null;
   const trimmed = iso.trim().toUpperCase();
   return ISO_ALPHA2_RE.test(trimmed) ? trimmed : null;
 }
@@ -102,23 +102,21 @@ export function aggregateClickStreamByCountry(
   events: Iterable<ClickStreamEvent>,
   filters: AggregationFilters = {},
 ): HeatmapResult {
-  const start = filters.dateRange?.start != null
-    ? toTimestamp(filters.dateRange!.start!)
-    : null;
-  const end = filters.dateRange?.end != null
-    ? toTimestamp(filters.dateRange!.end!)
-    : null;
+  const startRaw = filters.dateRange?.start;
+  const endRaw = filters.dateRange?.end;
+  const start = startRaw != null ? toTimestamp(startRaw) : null;
+  const end = endRaw != null ? toTimestamp(endRaw) : null;
   const campaignFilter = filters.campaignLinkId ?? null;
 
   const buckets = new Map<string, { clicks: number; conversions: number }>();
 
   for (const event of events) {
-    if (!event || typeof event !== 'object') continue;
+    if (!event || typeof event !== "object") continue;
 
     const iso = normalizeIso(event.countryIso);
     if (!iso) continue;
 
-    if (event.type !== 'click' && event.type !== 'conversion') continue;
+    if (event.type !== "click" && event.type !== "conversion") continue;
 
     if (campaignFilter !== null) {
       if ((event.campaignLinkId ?? null) !== campaignFilter) continue;
@@ -130,7 +128,7 @@ export function aggregateClickStreamByCountry(
     if (end !== null && ts >= end) continue;
 
     const bucket = buckets.get(iso) ?? { clicks: 0, conversions: 0 };
-    if (event.type === 'click') bucket.clicks += 1;
+    if (event.type === "click") bucket.clicks += 1;
     else bucket.conversions += 1;
     buckets.set(iso, bucket);
   }
@@ -147,9 +145,8 @@ export function aggregateClickStreamByCountry(
   const countries: CountryAggregate[] = [];
   for (const [iso, bucket] of buckets) {
     if (bucket.clicks === 0 && bucket.conversions === 0) continue;
-    const conversionRate = bucket.clicks === 0
-      ? 0
-      : round2((bucket.conversions / bucket.clicks) * 100);
+    const conversionRate =
+      bucket.clicks === 0 ? 0 : round2((bucket.conversions / bucket.clicks) * 100);
     const intensity = maxClicks === 0 ? 0 : bucket.clicks / maxClicks;
     countries.push({
       countryIso: iso,
