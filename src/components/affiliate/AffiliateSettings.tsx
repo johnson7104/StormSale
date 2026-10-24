@@ -10,7 +10,6 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useNotification } from "../../context/NotificationContext";
-import { TelegramAlertsCard } from "./TelegramAlertsCard";
 import {
   type SplitDestination,
   validateSplitPlan,
@@ -845,8 +844,6 @@ export const AffiliateSettings: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        <TelegramAlertsCard />
       </div>
     </div>
   );
