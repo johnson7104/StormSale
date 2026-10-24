@@ -18,7 +18,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method Not Allowed" });
   }
-  const proof = { ...(req.body ?? {}), action: "connect" };
+  const body = req.body ?? {};
+  if (typeof body !== "object" || Array.isArray(body)) {
+    return res.status(400).json({ error: "Invalid request body." });
+  }
+  const proof = { wallet: body.wallet, timestamp: body.timestamp, signature: body.signature, action: "connect" };
   if (!verifyOwnership(proof, "connect")) {
     return res.status(401).json({ error: "A fresh wallet signature is required." });
   }

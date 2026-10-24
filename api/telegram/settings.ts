@@ -20,6 +20,11 @@ import {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const store = getRedisClient();
+  // Only allow GET/POST on this endpoint; reject anything else before doing work.
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
   if (req.method === "GET") {
     const wallet = req.query.wallet;
     if (!isValidWallet(wallet)) {
