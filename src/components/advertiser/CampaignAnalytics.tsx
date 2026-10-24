@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,7 +10,6 @@ import { BarChart3, TrendingUp, Users, DollarSign, Eye, Download, Calendar } fro
 import { CohortVisualizer } from "./CohortVisualizer";
 
 export const CampaignAnalytics = () => {
-  const [dateRange, setDateRange] = useState("Last 30 Days");
   const campaignStats = [
     {
       name: "Tech Gadgets Pro",
@@ -82,31 +80,6 @@ export const CampaignAnalytics = () => {
     },
   ];
 
-  const geoClusters = useMemo(
-    () => [
-      { iso: "US", country: "United States", clicks: 4820, conversions: 214, x: 120, y: 110, r: 26 },
-      { iso: "GB", country: "United Kingdom", clicks: 2140, conversions: 96, x: 232, y: 92, r: 18 },
-      { iso: "DE", country: "Germany", clicks: 1890, conversions: 82, x: 250, y: 104, r: 16 },
-      { iso: "IN", country: "India", clicks: 3120, conversions: 128, x: 340, y: 148, r: 21 },
-      { iso: "BR", country: "Brazil", clicks: 1420, conversions: 54, x: 168, y: 208, r: 14 },
-      { iso: "AU", country: "Australia", clicks: 980, conversions: 38, x: 400, y: 218, r: 12 },
-    ],
-    []
-  );
-
-  const topCountries = useMemo(() => {
-    const ranked = [...geoClusters]
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 5)
-      .map((c) => ({
-        ...c,
-        conversionPct: ((c.conversions / c.clicks) * 100).toFixed(1),
-      }));
-    return ranked;
-  }, [geoClusters]);
-
-  const dateRanges = ["Last 7 Days", "Last 30 Days", "Last 90 Days"];
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -120,17 +93,13 @@ export const CampaignAnalytics = () => {
           </p>
         </div>
         <div className="flex space-x-3 mt-6 lg:mt-0">
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="h-12 px-4 border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 rounded-xl text-sm font-medium"
+          <Button
+            variant="outline"
+            className="h-12 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl"
           >
-            {dateRanges.map((range) => (
-              <option key={range} value={range}>
-                {range}
-              </option>
-            ))}
-          </select>
+            <Calendar className="w-4 h-4 mr-2" />
+            Last 30 Days
+          </Button>
           <Button className="h-12 bg-zinc-900 hover:bg-zinc-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-xl shadow-md transition-all">
             <Download className="w-4 h-4 mr-2" />
             Export
@@ -279,85 +248,6 @@ export const CampaignAnalytics = () => {
 
       {/* Cohort Retention & Customer LTV Heatmap */}
       <CohortVisualizer />
-
-      {/* Geo Heatmap */}
-      <Card className="border border-slate-200 dark:border-zinc-800 shadow-sm rounded-2xl bg-white dark:bg-zinc-900/50">
-        <CardHeader className="border-b border-slate-100 dark:border-zinc-800/50 pb-4">
-          <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">
-            Click Stream Heatmap
-          </CardTitle>
-          <CardDescription className="text-zinc-500 dark:text-zinc-400">
-            Geographic distribution of clicks and conversions ({dateRange})
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <svg
-                viewBox="0 0 480 260"
-                className="w-full h-auto rounded-xl bg-slate-50 dark:bg-zinc-950/50 border border-slate-100 dark:border-zinc-800/50"
-                role="img"
-                aria-label="World map heatmap of click density by country"
-              >
-                <rect x="0" y="0" width="480" height="260" fill="transparent" />
-                {geoClusters.map((cluster) => (
-                  <g key={cluster.iso} className="transition-all duration-500">
-                    <circle
-                      cx={cluster.x}
-                      cy={cluster.y}
-                      r={cluster.r}
-                      className="fill-indigo-500/30 dark:fill-indigo-400/30"
-                    />
-                    <circle
-                      cx={cluster.x}
-                      cy={cluster.y}
-                      r={cluster.r / 2}
-                      className="fill-indigo-600/70 dark:fill-indigo-400/70"
-                    >
-                      <title>
-                        {cluster.country}: {cluster.clicks} clicks, {cluster.conversions} conversions
-                      </title>
-                    </circle>
-                  </g>
-                ))}
-              </svg>
-            </div>
-            <div className="space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Top 5 Countries
-              </div>
-              {topCountries.map((country, index) => (
-                <div
-                  key={country.iso}
-                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-950/50 border border-slate-100 dark:border-zinc-800/50 rounded-xl transition-all duration-500"
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-xs font-bold text-zinc-400 dark:text-zinc-500 w-4">
-                      {index + 1}
-                    </span>
-                    <div>
-                      <div className="font-bold text-sm text-zinc-900 dark:text-white">
-                        {country.country}
-                      </div>
-                      <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mt-0.5">
-                        {country.clicks.toLocaleString()} clicks
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-sm text-indigo-600 dark:text-indigo-400">
-                      {country.conversionPct}%
-                    </div>
-                    <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                      conv.
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Quick Insights */}
       <div className="grid md:grid-cols-3 gap-6">
