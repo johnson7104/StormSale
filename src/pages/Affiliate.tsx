@@ -1,28 +1,29 @@
-import { useState, useMemo, useEffect } from "react";
 import { Sidebar } from "../components/shared/Sidebar";
 import { ThemeToggle } from "../components/shared/ThemeToggle";
 import { JoinCampaignButton } from "../components/affiliate/JoinCampaignButton";
 import { SalesList } from "../components/affiliate/SalesList";
 import { ClaimPayouts } from "../components/affiliate/ClaimPayouts";
 import { AffiliateOverview } from "../components/affiliate/AffiliateOverview";
-import { AffiliateSettings } from "../components/affiliate/AffiliateSettings";
 import { TelegramCampaignBrowser } from "../components/affiliate/TelegramCampaignBrowser";
 import { CustomLinksManager } from "../components/affiliate/CustomLinksManager";
+import { ClickStreamHeatmap } from "../components/affiliate/ClickStreamHeatmap";
+import { CampaignApplication } from "../components/affiliate/CampaignApplication";
 import {
   Users,
   TrendingUp,
   DollarSign,
   Shield,
   LayoutDashboard,
+  Globe2,
   Send,
   Sliders,
-  Map as MapIcon,
   Link2,
 } from "lucide-react";
 import { NotificationProvider } from "../context/NotificationContext";
 import { usePreference } from "../hooks/usePreference";
 import { motion, AnimatePresence } from "framer-motion";
 import { isTelegramMiniApp } from "../lib/telegram";
+import { AffiliateSettings } from "../components/affiliate/AffiliateSettings";
 import { Button } from "../components/ui/button";
 
 interface AffiliateProps {
@@ -31,6 +32,7 @@ interface AffiliateProps {
 
 const AFFILIATE_TABS = [
   "overview",
+  "heatmap",
   "telegram-browser",
   "custom-links",
   "join-campaign",
@@ -38,6 +40,7 @@ const AFFILIATE_TABS = [
   "claim-payouts",
   "settings",
   "security",
+  "apply-links",
 ] as const;
 type AffiliateTab = (typeof AFFILIATE_TABS)[number];
 
@@ -50,10 +53,11 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
 
   const tabs = [
     { id: "overview", label: "Dashboard Overview", icon: LayoutDashboard },
-    { id: "heatmap", label: "Click Heatmap", icon: MapIcon },
+    { id: "heatmap", label: "Click Heatmap", icon: Globe2 },
     { id: "telegram-browser", label: "Telegram Campaigns", icon: Send },
     { id: "custom-links", label: "Custom Short Links", icon: Link2 },
     { id: "join-campaign", label: "Join Campaign", icon: Users },
+    { id: "apply-links", label: "Apply & Tracking Links", icon: Link2 },
     { id: "my-sales", label: "My Sales & Commissions", icon: DollarSign },
     { id: "claim-payouts", label: "Claim Payouts", icon: TrendingUp },
     { id: "settings", label: "Personalized Settings", icon: Sliders },
@@ -63,13 +67,15 @@ const AffiliateContent: React.FC<AffiliateProps> = ({ onBack }) => {
   const renderContent = () => {
     switch (activeTab) {
       case "heatmap":
-        return <AffiliateOverview />;
+        return <ClickStreamHeatmap />;
       case "telegram-browser":
         return <TelegramCampaignBrowser />;
       case "custom-links":
         return <CustomLinksManager />;
       case "join-campaign":
         return <JoinCampaignButton />;
+      case "apply-links":
+        return <CampaignApplication />;
       case "my-sales":
         return <SalesList />;
       case "claim-payouts":
