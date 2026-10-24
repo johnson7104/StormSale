@@ -109,4 +109,11 @@ describe("ClickStreamHeatmap", () => {
     renderMap([]);
     expect(screen.getByText("No clicks in this range.")).toBeTruthy();
   });
+
+  it("shows an error alert and no clusters if the loader rejects with a non-Error value", async () => {
+    const loadEvents = vi.fn().mockRejectedValue("network down");
+    render(<ClickStreamHeatmap loadEvents={loadEvents} now={() => NOW} />);
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.queryAllByTestId(/^click-cluster-/)).toHaveLength(0);
+  });
 });
