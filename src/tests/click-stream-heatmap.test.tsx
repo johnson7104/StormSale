@@ -1,172 +1,112 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, afterEach, viE } from 'vitest';
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ClickStreamHeatmap } from "../components/affiliate/ClickStreamHeatmap";
+import type { ClickStreamEvent } from "../lib/clickStreamAggregation";
 
-import { ClickStreamHeatmap } from '../components/affiliate/ClickStreamHeatmap';
-import type {
-  ClickAggregate,
-  ClickStreamResponse,
-} from '../components/affiliate/ClickStreamHeatmap';
+const NOW = Date.parse("2026-10-20T00:00:00Z");
+const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
 
-const mockResponse: ClickStreamResponse = {
-  countries: [
-    { countryIso: 'US', countryName: 'United States', clicks: 1240, conversions: 124, conversionRate: 10 },
-    { countryIso: 'DE', countryName: 'Germany', clicks: 880, conversions: 66, conversionRate: 7.5 },
-    { countryIso: 'IN', countryName: 'India', clicks: 640, conversions: 32, conversionRate: 5 },
-    { countryIso: 'BR', countryName: 'Brazil', clicks: 420, conversions: 21, conversionRate: 5 },
-    { countryIso: 'GB', countryName: 'United Kingdom', clicks: 310, conversions: 31, conversionRate: 10 },
-    { countryIso: 'JP', countryName: 'Japan', clicks: 150, conversions: 6, conversionRate: 4 },
-  ],
-  totalClicks: 3640,
-  totalConversions: 280,
-};
+const clicks = (iso: string, n: number, age: number, link = "link-a"): ClickStreamEvent[] =>
+  Array.from({ length: n }, () => ({
+    countryIso: iso,
+    type: "click" as const,
+    timestamp: daysAgo(age),
+    campaignLinkId: link,
+  }));
+const conversion = (iso: string, age: number, link = "link-a"): ClickStreamEvent => ({
+  countryIso: iso,
+  type: "conversion",
+  timestamp: daysAgo(age),
+  campaignLinkId: link,
+});
 
-function mockFetch(payload: ClickStreamResponse) {
-  return vi.fn(async () =>
-    Promise.resolve({
-      ok: true,
-      json: async () => payload,
-    } as Response),
-  );
-}
+const EVENTS: ClickStreamEvent[] = [
+  ...clicks("US", 20, 2),
+  conversion("US", 2),
+  conversion("US", 2),
+  ...clicks("NG", 10, 3, "link-b"),
+  conversion("NG", 3, "link-b"),
+  ...clicks("DE", 8, 4),
+  ...clicks("IN", 6, 5),
+  ...clicks("BR", 4, 6),
+  ...clicks("JP", 2, 6),
+  ...clicks("GB", 30, 60),
+];
 
-describe('ClickStreamHeatmap', () => {
-  const originalFetch = global.fetch;
+const renderMap = (events = EVENTS) =>
+  render(<ClickStreamHeatmap events={events} now={() => NOW} initialRange="7d" />);
 
-  beforeEach(() => {
-    global.fetch = mockFetch(mockResponse) as unknown as typeof fetch;
+describe("ClickStreamHeatmap", () => {
+  afterEach(cleanup);
+
+  it("renders an SVG world map with one cluster per country in range", () => {
+    renderMap();
+    const map = screen.getByTestId("click-heatmap-map");
+    expect(map.tagName.toLowerCase()).toBe("svg");
+    expect(screen.getAllByTestId(/^click-cluster-/)).toHaveLength(6);
+    expect(screen.queryByTestId("click-cluster-GB")).toBeNull();
   });
 
-  afterEach(() => {
-    global.fetch = originalFetch;
-    vi.restoreAllMocks();
+  it("shows a click volume tooltip on hover and on keyboard focus", () => {
+    renderMap();
+    fireEvent.mouseEnter(screen.getByTestId("click-cluster-US"));
+    const tooltip = screen.getByRole("tooltip");
+    expect(within(tooltip).getByText("United States")).toBeTruthy();
+    expect(within(tooltip).getByText("20 clicks")).toBeTruthy();
+    fireEvent.mouseLeave(screen.getByTestId("click-cluster-US"));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(screen.getByTestId("click-cluster-NG"));
+    expect(within(screen.getByRole("tooltip")).getByText("Nigeria")).toBeTruthy();
   });
 
-  it('renders an interactive SVG world map with country clusters', async () => {
-    render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
-
-    const map = await screen.findByTestId('click-heatmap-map');
-    expect(map.tagName).toBe('svg');
-    expect(map).toBeInTheDocument();
-
-    const clusters = await screen.findAllByTestId(/click-cluster-/);
-    expect(clusters).toHaveLength(mockResponse.countries.length);
-  });
-
-  it('shows click volume tooltips on cluster hover', async () => {
-    render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
-
-    const usCluster = await screen.findByTestId('click-cluster-US');
-    fireEvent.mouseEnter(usCluster);
-
-    const tooltip = await screen.findByRole('tooltip');
-    expect(tooltip).toHaveTextContent(/United States/);
-    expect(tooltip).toHaveTextContent(/1,240 clicks/);
-  });
-
-  it('ranks top 5 countries with conversion percentage metrics', async () => {
-    render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
-
-    const list = await screen.findByTestId('top-countries-ranking');
-    const items = within(list).getAllByTestId(/top-country-/);
+  it("ranks the top 5 countries with conversion percentages", () => {
+    renderMap();
+    const list = screen.getByRole("list", { name: "Top 5 countries by clicks" });
+    const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(5);
-
-    expect(items[0]).toHaveTextContent(/United States/);
-    expect(items[0]).toHaveTextContent(/10(\.0)?&/);
-    expect(items[1]).toHaveTextContent(/Germany/);
-    expect(items[1]).toHaveTextContent(/7(\.5)?%/);
+    expect(items[0].textContent).toContain("United States");
+    expect(items[0].textContent).toContain("10.00%");
+    expect(items[1].textContent).toContain("Nigeria");
+    expect(items[1].textContent).toContain("10.00%");
+    expect(screen.queryByTestId("top-country-JP")).toBeNull();
   });
 
-  it('animates transitions on date filter change', async () => {
-    const { unmount } = render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
-
-    await screen.findByTestId('click-cluster-US');
-
-    const nextPayload: ClickStreamResponse = {
-      countries: [
-        { countryIso: 'US', countryName: 'United States', clicks: 600, conversions: 60, conversionRate: 10 },
-        { countryIso: 'FR', countryName: 'France', clicks: 500, conversions: 25, conversionRate: 5 },
-      ],
-      totalClicks: 1100,
-      totalConversions: 85,
-    };
-    global.fetch = mockFetch(nextPayload) as unknown as typeof fetch;
-
-    const dateInput = screen.getByLabelText(/From date/i);
-    await userEvent.clear(dateInput);
-    await userEvent.type(dateInput, '2024-02-01');
-
-    const map = screen.getByTestId('click-heatmap-map');
-    expect(map).toHaveAttribute('data-transition', 'active');
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('click-cluster-FR')).toBeInTheDocument();
+  it("updates clusters when the date range changes", () => {
+    renderMap();
+    fireEvent.change(screen.getByLabelText("Filter heatmap by date range"), {
+      target: { value: "90d" },
     });
-
-    expect(map).toHaveAttribute('data-transition', 'idle');
-    expect(screen.queryByTestId('click-cluster-DE')).not.toBeInTheDocument();
-
-    unmount();
+    expect(screen.getByTestId("click-cluster-GB")).toBeTruthy();
+    expect(screen.getByTestId("top-country-GB")).toBeTruthy();
   });
 
-  it('requests aggregated data without raw PII fields', async () => {
-    const fetchMock = mockFetch(mockResponse);
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
-
-    await screen.findByTestId('click-heatmap-map');
-
-    expect(fetchMock).toHaveBeenCalled();
-    const [url, init] = fetchMock.mock.calls[0] as [unknown, RequestInit];
-    const urlString = String(url);
-    expect(urlString).toContain('url') === undefined || true;
-    expect(urlString).toContain('/api/affiliate/clicks/heatmap');
-    expect(urlString).toContain('campaignLinkId=camp_123');
-    expect(urlString).toContain('from=2024-01-01');
-    expect(urlString).toContain('to=2024-01-31');
-    expect(init.method).toBeUndefined();
+  it("filters by campaign link", async () => {
+    renderMap();
+    fireEvent.change(screen.getByLabelText("Filter heatmap by campaign link"), {
+      target: { value: "link-b" },
+    });
+    expect(screen.getByTestId("click-cluster-NG")).toBeTruthy();
+    expect(screen.queryByTestId("top-country-US")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("click-cluster-US")).toBeNull());
   });
 
-  it('displays an error state when the aggregate request fails', async () => {
-    global.fetch = vi.fn(async () =>
-      Promise.resolve({ ok: false, status: 500 } as Response),
-    ) as unknown as typeof fetch;
+  it("loads events through the loader when none are supplied", async () => {
+    const loadEvents = vi.fn().mockResolvedValue(clicks("NG", 3, 1));
+    render(<ClickStreamHeatmap loadEvents={loadEvents} now={() => NOW} />);
+    expect(screen.getByRole("status")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("click-cluster-NG")).toBeTruthy());
+    expect(loadEvents).toHaveBeenCalledTimes(1);
+  });
 
-    render(
-      <ClickStreamHeatmap
-        campaignLinkId="camp_123"
-        dateRange={{ from: '2024-01-01', to: '2024-01-31' }}
-      />,
-    );
+  it("shows an error when loading fails", async () => {
+    const loadEvents = vi.fn().mockRejectedValue(new Error("boom"));
+    render(<ClickStreamHeatmap loadEvents={loadEvents} now={() => NOW} />);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("boom"));
+  });
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/Unable to load heatmap data/i);
+  it("shows an empty state when no clicks are in range", () => {
+    renderMap([]);
+    expect(screen.getByText("No clicks in this range.")).toBeTruthy();
   });
 });
